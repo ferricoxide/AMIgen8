@@ -474,24 +474,23 @@ function GrubSetup {
          -L '"${CHROOT_OS_NAME}"'
      '
      GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
+
+     # Create BIOS-boot shim
+     (
+       echo 'search --no-floppy --set efi --file /efi/redhat/grub.cfg'
+       echo 'configfile ($efi)/efi/redhat/grub.cfg'
+     ) > "${CHROOTMNT}/etc/grub2.cfg"
    else
      # Install legacy GRUB2 boot-content
      chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
      GRUB_CFG="/boot/grub2/grub.cfg"
    fi
 
-   # Install GRUB config-file
+   # Install mode-appropriate GRUB config-file
    err_exit "Installing GRUB config-file..." NONE
    chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-mkconfig \
       > ${GRUB_CFG}" || \
      err_exit "Failed to install GRUB config-file"
-
-   # Fix GRUB-config link as necessary
-   if [[ -L /etc/grub2.cfg ]] && [[ ! -e $( readlink -f /etc/grub2.cfg ) ]]
-   then
-     rm /etc/grub2.cfg
-     ln -s "${GRUB_CFG}" /etc/grub2.cfg
-   fi
 
    # Make intramfs in chroot-dev
    if [[ ${FIPSDISABLE} != "true" ]]
@@ -505,9 +504,6 @@ function GrubSetup {
          "${CHROOTKRN}" || \
         err_exit "Failed installing initramfs"
    fi
-
-
-
 }
 
 # Configure SELinux
