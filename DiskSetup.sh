@@ -12,6 +12,7 @@ DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
 LABEL_BOOT="${LABEL_BOOT:-boot_disk}"
 LABEL_UEFI="${LABEL_UEFI:-UEFI_DISK}"
+XDISTRO="${XDISTRO:-false}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -357,8 +358,8 @@ function SetupBootParts_Efi {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-  -o b:B:d:f:hl:L:p:r:U:v: \
-  --long bootlabel:,bootblk-size:,bootprt-size:,disk:,fstype:,help,label-boot:,label-uefi:,partition-string:,rootlabel:,uefi-size:,vgname: \
+  -o b:B:d:f:hl:L:p:r:U:v:X \
+  --long bootlabel:,bootblk-size:,bootprt-size:,cross-distro,disk:,fstype:,help,label-boot:,label-uefi:,partition-string:,rootlabel:,uefi-size:,vgname: \
   -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -513,6 +514,10 @@ do
                   ;;
             esac
             ;;
+      -X|--cross-distro)
+         XDISTRO="true"
+         shift
+         ;;
       --)
          shift
          break
@@ -542,7 +547,7 @@ else
 fi
 
 # Determine how we're formatting the disk
-if [[ -d /sys/firmware/efi ]]
+if [[ -d /sys/firmware/efi ]] || [[ ${XDISTRO} == "true" ]]
 then
   if [[ -z ${ROOTLABEL:-} ]] && [[ -n ${VGNAME:-} ]]
   then

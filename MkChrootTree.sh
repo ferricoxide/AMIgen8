@@ -21,7 +21,11 @@ DEFGEOMSTR="${DEFGEOMSTR:-$( IFS=$',' ; echo "${DEFGEOMARR[*]}" )}"
 FSTYPE="${DEFFSTYPE:-xfs}"
 GEOMETRYSTRING="${DEFGEOMSTR}"
 SAVIFS="${IFS}"
-read -ra VALIDFSTYPES <<< "$( awk '!/^nodev/{ print $1}' /proc/filesystems | tr '\n' ' ' )"
+read -ra VALIDFSTYPES <<< "$(
+  awk '!/^nodev/{ print $1}' /proc/filesystems | \
+  tr '\n' ' '
+)"
+WITHUEFI="${WITHUEFI:-false}"
 
 
 # Make interactive-execution more-verbose unless explicitly told not to
@@ -263,8 +267,8 @@ function PrepSpecialDevs {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o d:f:hm:p: \
-   --long disk:,fstype:,help,mountpoint:,no-lvm,partition-string: \
+   -o d:f:hm:p:r:u \
+   --long disk:,fstype:,with-uefi,help,mountpoint:,no-lvm,partition-string:,rootlabel: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -338,6 +342,23 @@ do
                   ;;
             esac
             ;;
+      -r|--rootlabel)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  ROOTLABEL=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -u|--with-uefi)
+         WITHUEFI="true"
+         shift
+         ;;
       --)
          shift
          break
@@ -381,7 +402,13 @@ fi
 # Do partition-mount if 'no-lvm' explicitly requested
 if [[ ${NOLVM:-} == "true" ]]
 then
-   mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}2" "${CHROOTMNT}"
+   if [[ -z ${ROOTLABEL:-} ]]
+   then
+     err_exit "MUST specify a root-label when selecting 'no-lvm' option" 1
+   else
+     ROOT_DEV="$( blkid | grep "${ROOTLABEL}" | sed 's/: LABEL=.*$//' )"
+   mount -t "${FSTYPE}" "${ROOT_DEV}" "${CHROOTMNT}"
+   fi
 # Bail if not able to find a LVM2 vg-name
 elif [[ -z ${VGNAME:-} ]]
 then
@@ -393,7 +420,7 @@ else
 fi
 
 # Mount BIOS and UEFI boot-devices as needed
-if [[ -d /sys/firmware/efi ]]
+if [[ -d /sys/firmware/efi ]] || [[ ${WITHUEFI} == "true" ]]
 then
   MountBootFSes
 fi
