@@ -473,10 +473,16 @@ function GrubSetup {
          -c \
          -d '"${EFI_DEV}"' \
          -p 1 \
-         -l \\EFI\\redhat\\shimx64.efi \
+         -l \\EFI\\'"$(
+           awk -F "=" '/^ID=/{ print $2 }' /etc/os-release | \
+           sed 's/"//g'
+         )"'\\shimx64.efi \
          -L '"${CHROOT_OS_NAME}"'
      '
-     GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
+     GRUB_CFG="/boot/efi/EFI/$(
+       awk -F "=" '/^ID=/{ print $2 }' /etc/os-release | \
+       sed 's/"//g'
+     )/grub.cfg"
    else
      # Install legacy GRUB2 boot-content
      chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
